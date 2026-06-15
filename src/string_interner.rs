@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::const_vec::ConstVec;
 
 #[derive(Clone, Copy, Debug)]
@@ -10,6 +12,28 @@ struct Span {
 pub(crate) struct StringInterner<const CAP: usize> {
     blob: ConstVec<u8, CAP>,
     spans: ConstVec<Span, CAP>,
+}
+
+impl<const CAP: usize> Debug for StringInterner<CAP> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StringInterner")
+            .field(
+                "values",
+                &self
+                    .spans
+                    .as_ref()
+                    .iter()
+                    .map(|sp| {
+                        let blob = self.blob.as_ref();
+                        core::str::from_utf8(
+                            &blob[sp.off as usize..sp.off as usize + sp.len as usize],
+                        )
+                        .unwrap()
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
 }
 
 impl<const CAP: usize> StringInterner<CAP> {
