@@ -5,46 +5,38 @@
 pub mod attributes;
 mod const_vec;
 pub mod elements;
+mod hash;
 mod op_builder;
 mod string_interner;
 pub mod text;
 pub mod traits;
 
-use attributes::{attr, attr_dyn, attr_name};
-use elements::{el, tag};
+use attributes::{attr, attr_dyn};
+use elements::{div, h2, p, span};
 use op_builder::FlatTemplate;
 use text::{Dynamic, dynamic, text};
 use traits::{Built, Raw, View};
-tag!(Div, "div");
-tag!(H2, "h2");
-tag!(P, "p");
-tag!(SpanTag, "span");
 attr!(CardClass, "class", "card");
 attr!(BadgeClass, "class", "badge");
 attr!(TitleRole, "data-role", "title");
 text!(TitlePrefix, "Title: ");
 text!(HelloPrefix, "Hello, ");
-attr_name!(StyleName, "style");
-
-struct StaticTemplate {}
 
 fn badge(content: impl View) -> impl View {
-    el::<SpanTag>().attr(BadgeClass).child(content)
+    span().attr(BadgeClass).child(content)
 }
 // one composable view definition, parameterized by its dynamic values
 fn card(style: &str, title: &str, name: &str) -> impl View {
-    el::<Div>()
+    div()
         .attr(CardClass)
-        .attr(attr_dyn::<StyleName>(style))
+        .attr(attr_dyn("style", style))
         .child(
-            el::<H2>()
-                .attr(TitleRole)
+            h2().attr(TitleRole)
                 .child(TitlePrefix)
                 .child(dynamic(title)),
         )
         .child(
-            el::<P>()
-                .attr(CardClass)
+            p().attr(CardClass)
                 .child(HelloPrefix)
                 .child(badge(dynamic(name))),
         )
@@ -58,7 +50,9 @@ fn template_of<V: Raw>(_: &V) -> &'static FlatTemplate {
 
 fn main() {
     let v1 = card("color: crimson", "Welcome", "Ada");
+    let template = template_of(&v1);
     let vnode = v1.into_vnode();
+    assert_eq!(template.dyns.len(), vnode.dynamic().len());
     println!("vnode: {:?}", vnode);
 }
 

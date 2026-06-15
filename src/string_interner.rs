@@ -14,6 +14,12 @@ pub(crate) struct StringInterner<const CAP: usize> {
     spans: ConstVec<Span, CAP>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct StaticStringInterner {
+    blob: &'static [u8],
+    spans: &'static [Span],
+}
+
 impl<const CAP: usize> Debug for StringInterner<CAP> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StringInterner")
@@ -27,6 +33,26 @@ impl<const CAP: usize> Debug for StringInterner<CAP> {
                         let blob = self.blob.as_ref();
                         core::str::from_utf8(
                             &blob[sp.off as usize..sp.off as usize + sp.len as usize],
+                        )
+                        .unwrap()
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
+}
+
+impl Debug for StaticStringInterner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StaticStringInterner")
+            .field(
+                "values",
+                &self
+                    .spans
+                    .iter()
+                    .map(|sp| {
+                        core::str::from_utf8(
+                            &self.blob[sp.off as usize..sp.off as usize + sp.len as usize],
                         )
                         .unwrap()
                     })
@@ -69,16 +95,28 @@ impl<const CAP: usize> StringInterner<CAP> {
         let off = self.blob.len();
         let mut i = 0;
         while i < sb.len() {
-            self.blob = self.blob.push(sb[i]);
+            self.blob.push(sb[i]);
             i += 1;
         }
 
         let idx = self.spans.len();
-        self.spans = self.spans.push(Span {
+        self.spans.push(Span {
             off: off as u16,
             len: sb.len() as u16,
         });
         (self, idx as u16)
+    }
+
+    pub(crate) const fn as_static(&'static self) -> StaticStringInterner {
+        StaticStringInterner {
+            blob: self.blob.as_ref(),
+            spans: self.spans.as_ref(),
+        }
+    }
+
+    pub(crate) const fn hash_at(&self, i: u16, seed: u64) -> u64 {
+        let sp = self.spans.at(i as usize);
+        crate::hash::xxh64_range(self.blob.as_ref(), sp.off as usize, sp.len as usize, seed)
     }
 
     #[cfg(test)]
@@ -86,6 +124,15 @@ impl<const CAP: usize> StringInterner<CAP> {
         let sp = self.spans.as_ref()[i as usize];
         let blob = self.blob.as_ref();
         core::str::from_utf8(&blob[sp.off as usize..sp.off as usize + sp.len as usize]).unwrap()
+    }
+}
+
+impl StaticStringInterner {
+    #[cfg(test)]
+    pub(crate) fn str_at(&self, i: u16) -> &str {
+        let sp = self.spans[i as usize];
+        core::str::from_utf8(&self.blob[sp.off as usize..sp.off as usize + sp.len as usize])
+            .unwrap()
     }
 }
 

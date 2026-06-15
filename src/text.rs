@@ -1,5 +1,6 @@
 use crate::op_builder::{RawOp, RawTape};
 use crate::traits::{Raw, View};
+use dioxus_core::{DynamicNode, VText};
 
 pub trait TextNode {
     const TEXT: &'static str;
@@ -9,9 +10,12 @@ macro_rules! text {
     ($n:ident, $s:literal) => {
         pub struct $n;
         impl $crate::traits::Raw for $n {
-            const RAW: $crate::op_builder::RawTape = $crate::op_builder::RawTape::new()
-                .push($crate::op_builder::RawOp::TextNode)
-                .push($crate::op_builder::RawOp::Text($s));
+            const RAW: $crate::op_builder::RawTape = {
+                let mut raw = $crate::op_builder::RawTape::new();
+                raw.push($crate::op_builder::RawOp::TextNode);
+                raw.push($crate::op_builder::RawOp::Text($s));
+                raw
+            };
         }
         impl $crate::traits::View for $n {}
     };
@@ -26,7 +30,19 @@ pub fn dynamic(s: impl Into<String>) -> Dynamic {
 }
 
 impl Raw for Dynamic {
-    const RAW: RawTape = RawTape::new().push(RawOp::TextNode).push(RawOp::Dyn);
+    const RAW: RawTape = {
+        let mut raw = RawTape::new();
+        raw.push(RawOp::TextNode);
+        raw.push(RawOp::Dyn);
+        raw
+    };
 }
 
-impl View for Dynamic {}
+impl View for Dynamic {
+    fn push(self, dynamic: &mut crate::traits::DynamicValues)
+    where
+        Self: Sized,
+    {
+        dynamic.push_dynamic_node(DynamicNode::Text(VText::new(self.0)));
+    }
+}
